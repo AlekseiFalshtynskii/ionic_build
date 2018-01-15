@@ -1,0 +1,78 @@
+#!/bin/bash
+. build/common/functions
+
+if $(handleArgs --help $*); then
+  build/common/help "build_all_after"
+  exit 0
+fi
+
+echo $(green "build/common/publish_market $*")
+
+outputPath=$(handleArgs --outputPath $*)
+build_ios=$(handleArgs ios $*)
+build_android=$(handleArgs android $*)
+ios_version=$(handleArgs --ios_version $*)
+android_version=$(handleArgs --android_version $*)
+
+cd $outputPath
+
+xcarchive="РСХБизнес.xcarchive"
+armv7="android-armv7-release-unsigned.apk"
+x86="android-x86-release-unsigned.apk"
+
+if $build_ios; then
+  files="$files $xcarchive"
+fi
+if $build_android; then
+  files="$files $armv7"
+  files="$files $x86"
+fi
+
+if $build_ios && [ ! -d $xcarchive ]; then
+  files_not_found="$files_not_found $xcarchive"
+fi
+if $build_android && [ ! -f $armv7 ]; then
+  files_not_found="$files_not_found $armv7"
+fi
+if $build_android && [ ! -f $x86 ]; then
+  files_not_found="$files_not_found $x86"
+fi
+
+if [ ! "$files_not_found" ]; then
+  dt=$(datetime)
+  xcarchive_dt="RSHBusiness_$dt.xcarchive"
+  armv7_dt="$(basename ${armv7%.apk})_$dt.apk"
+  x86_dt="$(basename ${x86%.apk})_$dt.apk"
+  if $build_ios; then
+    mv $xcarchive $xcarchive_dt
+    zipFiles="$zipFiles $xcarchive_dt"
+  fi
+  if $build_android; then
+    mv $armv7 $armv7_dt
+    mv $x86 $x86_dt
+    zipFiles="$zipFiles $armv7_dt $x86_dt"
+  fi
+  zipFile="RSHBusiness_$dt.zip"
+  zip -er -P 111 $zipFile $zipFiles
+  marketPath=$archivePathMarket
+  mkdir -p "$marketPath"
+  cp -f $zipFile "$marketPath"
+  depth=`echo $outputPath | grep -o / | wc -l`
+  for ((i=0; i<depth; i++)) do
+    cd ../
+  done
+  build/common/publish/dropbox/dropbox_uploader.sh delete $dropboxPathMarket
+  build/common/publish/dropbox/dropbox_uploader.sh upload $outputPath$zipFile $dropboxPathMarket/
+  sleep 60
+  link=$(getDropboxUrl $dropboxPathMarket/ $zipFile)
+  if $build_ios; then
+    message=$message"iOS $version_market_ios<br>"
+  fi
+  if $build_android; then
+    message=$message"Android $version_market_android<br>"
+  fi
+  message="$message $link"
+  python build/common/publish/email/send_email_market.py "$message"
+else
+  python build/common/publish/email/send_email_error.py "$files_not_found"
+fi

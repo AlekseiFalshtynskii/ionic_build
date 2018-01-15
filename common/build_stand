@@ -1,0 +1,23 @@
+#!/bin/bash
+. build/common/constants
+. build/common/functions
+
+if $(handleArgs --help $*); then
+  build/common/help "build_stand"
+  exit 0
+fi
+
+echo $(green "build/common/build_stand $*")
+
+if $(handleArgs --release $*) || $(handleArgs --market $*); then
+  mode="release"
+else
+  mode="debug"
+fi
+
+stand=$1
+projectName=$(getProjectName $stand $mode)
+projectId=$(getProjectId $stand $mode)
+url=$(getServerUrl $stand)
+
+build/common/build_prepare --projectName $projectName --projectId $projectId --url $url --stand $stand $*

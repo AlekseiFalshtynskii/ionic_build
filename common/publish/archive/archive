@@ -1,0 +1,15 @@
+#!/bin/bash
+. build/common/functions
+
+dt=$(datetime)
+
+source=$(handleArgs --source $*)
+target=$(handleArgs --target $*)_$dt/
+files=$(handleArgs --files $*)
+
+mkdir -p $target
+
+IFS='#' read -ra FILES <<< "$files"
+for file in "${FILES[@]}"; do
+  cp -f $source$file $target
+done

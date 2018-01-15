@@ -1,0 +1,101 @@
+#!/bin/bash
+. build/common/functions
+
+if $(handleArgs --help $*); then
+  build/common/help "build"
+  exit 0
+fi
+
+echo $(green "build/build_prepare $*")
+
+build_ios=$(handleArgs ios $*)
+build_android=$(handleArgs android $*)
+branch=$(handleArgs --branch $*)
+projectName=$(handleArgs --projectName $*)
+projectId=$(handleArgs --projectId $*)
+url=$(handleArgs --url $*)
+version=$(handleArgs --version $*)
+outputPath=$(handleArgs --outputPath $*)
+stand=$(handleArgs --stand $*)
+npm_install=$(handleArgs --npm_install $*)
+update=$(handleArgs --update $*)
+hack=$(handleArgs --hack $*)
+prod=$(handleArgs --prod $*)
+release=$(handleArgs --release $*)
+market=$(handleArgs --market $*)
+
+if $update; then
+  cp -v package.json package_old.json
+  git pull
+fi
+
+current_branch=`git rev-parse --abbrev-ref HEAD`
+if [[ $branch != $current_branch ]]; then
+  git checkout $branch
+fi
+
+if [ ! -d node_modules ]; then
+  npm_install=true
+fi
+
+if [ -f package_old.json ]; then
+  diff_result=$(diff package.json package_old.json -Bbw)
+  if [ "$diff_result" != "" ]; then
+    npm_install=true
+  fi
+  rm -rf package_old.json
+fi
+
+if $npm_install; then
+  rm -rf node_modules
+  rm -rf plugins
+  npm install
+fi
+
+rm -rf www
+
+today=`date +%Y%m%d`
+enableSSLPinning="enableSSLPinning_"$stand
+if [ "$version" ]; then
+  oldVersion=`node -pe "require('./package.json').version"`
+  sed -i '' '/version/s/'$oldVersion'/'$version'/' package.json
+  sed -i '' '/version/s/'$oldVersion'/'$version'/' config.xml
+  sed -i '' '/appVersion/s/'$oldVersion'/'$version'/' src/app/config.ts
+fi
+sed -i '' 's/buildDate: ".*"/buildDate: "'$today'"/' src/app/config.ts
+sed -i '' 's%serverUrl.*[^,]%serverUrl: "'$url'"%' src/app/config.ts
+sed -i '' 's/enableSSLPinning: .*/enableSSLPinning: '${!enableSSLPinning}',/' src/app/config.ts
+sed -i '' 's/id=.*version/id="'$projectId'" version/' config.xml
+sed -i '' 's/<name>.*<\/name>/<name>'$projectName'<\/name>/' config.xml
+
+ios="--projectName $projectName --projectId $projectId --outputPath $outputPath"
+android="--outputPath $outputPath"
+
+if $market; then
+  ios="    $ios     --version $version --market"
+  android="$android --version $version --market"
+else
+  if $prod; then
+    ios="    $ios     --prod"
+    android="$android --prod"
+  fi
+  if $release; then
+    ios="    $ios     --release"
+    android="$android --release"
+  fi
+fi
+
+if $build_ios; then
+  if $hack; then
+    ios="$ios --url $url --hack"
+  fi
+  build/common/ios/build $ios
+fi
+
+if $build_android; then
+  android="$android --endFile $stand"
+  build/common/android/build $android
+fi
+
+git -c core.quotepath=false rm --cached -f -- config.xml package.json src/app/config.ts
+git -c core.quotepath=false checkout HEAD -- config.xml package.json src/app/config.ts

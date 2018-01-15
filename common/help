@@ -1,0 +1,69 @@
+#!/bin/bash
+. build/common/functions
+
+echo "   ___ _   _    ___ _  _ _______   ___  _ ___ _  ____   __"
+echo "  | _//_\ | |  / __| || |_   _\ \ / / \| / __| |/ /\ \ / /"
+echo "  | _/ _ \| |__\__ \ __ | | |  \ V /| .  \__ \ ' <  \ V / "
+echo "  |_/_/ \_\____|___/_||_| |_|   |_| |_|\_|___/_|\_\  |_|  ©"
+echo
+
+if [ $1 == "build" ]; then
+  echo "  "$(darkBlack "Общий вид команды выполнения скрипта:")
+  echo
+  echo "    "$(darkGreen "$ build/build") $(green "[--help] [stands] [--update] [--npm_install] [--hack] [--outputPath] [--publish]")
+  echo
+  echo "  "$(darkBlack "Параметр stands представляет собой указание стенда, режима сборки и платформу:")
+  echo
+  echo "    "$(green "shell") $(lightGray "...................") "Собирает сборки ios, android в режиме debug для стенда shell)"
+  echo "    "$(green "shell_debug") $(lightGray ".............") "Собирает сборки ios, android в режиме debug для стенда shell)"
+  echo "    "$(green "shell_debug_ios") $(lightGray ".........") "Собирает сборку ios          в режиме debug для стенда shell)"
+  echo "    "$(green "shell_debug_android") $(lightGray ".....") "Собирает сборку android      в режиме debug для стенда shell)"
+  echo "    "$(green "shell_release") $(lightGray "...........") "Собирает сборки ios, android в режиме release для стенда shell)"
+  echo "    "$(green "shell_release_ios") $(lightGray ".......") "Собирает сборку ios          в режиме release для стенда shell)"
+  echo "    "$(green "shell_release_android") $(lightGray "...") "Собирает сборку android      в режиме release для стенда shell)"
+  echo
+  echo "  "$(darkBlack "Аналогичные параметры для остальных стендов: qatar, test01, online")
+  echo "  "$(darkRed "В случае отсутствия вышеуказанных параметров сборки будут собираться под все стенды в обоих режимах для обеих платформ")
+  echo
+  echo "  "$(darkBlack "Опциональные параметры:")
+  echo
+  echo "    "$(green "branch") $(lightGray "..................") "Название ветки в Git ("$(green "по умолчанию текущая")")"
+  echo "    "$(green "outputPath") $(lightGray "..............") "Конечный каталог собранных файлов ("$(green "по умолчанию build/outputs")")"
+  echo "    "$(green "npm_install") $(lightGray ".............") "Флаг обязательной переустановки node пакетов ("$(green "удаляется node_modules, plugins, выполняется npm install")")"
+  echo "    "$(green "update") $(lightGray "..................") "Флаг обязательного обновления исходников ("$(green "git pull")")"
+  echo "    "$(green "hack") $(lightGray "....................") "Флаг применения "хака" ios для серверов с невалидным сертификатом ("$(green AppDelegate.m)")"
+  echo
+
+elif [ $1 == "build_market" ]; then
+  echo "  "$(darkBlack "настроен собирать архив .xcarchive ios и unsigned apk android для передачи в банк для последующей публикации:")
+  echo "  "$(darkBlack "- опционально можно указать сборку под одну платформу ios или android")
+  echo "  "$(darkBlack "- собирает xcarchive и unsigned apk")
+  echo "  "$(darkBlack "- добавляет в названия файлов текущую дату и время")
+  echo "  "$(darkBlack "- архивирует в запароленный zip")
+  echo "  "$(darkBlack "- публикует в DropBox")
+  echo "  "$(darkBlack "- отправляет версии сборок в zip и url архива в DropBox по почте")
+  echo
+  echo "  "$(darkBlack "Общий вид команды выполнения скрипта:")
+  echo
+  echo "    "$(darkGreen "$ build/build_market") $(green "[--help] [--branch] [--outputPath] [--update]")
+  echo "    "$(darkGreen "$ build/build_market") $(green "ios [--help] [--branch] [--outputPath] [--update]")
+  echo "    "$(darkGreen "$ build/build_market") $(green "android [--help] [--branch] [--outputPath] [--update]")
+  echo
+  echo "  "$(darkBlack "Предустановленные параметры:")
+  echo
+  echo "    "$(green "projectName") $(lightGray ".............") "РСХБизнес"
+  echo "    "$(green "projectId") $(lightGray "...............") "iOS - ru.rshb.dboul1, android - ru.rshb.dboul"
+  echo "    "$(green "version") $(lightGray ".................") "Актуальные версии iOS и Android"
+  echo "    "$(green "url") $(lightGray ".....................") "https://online.rshb.ru:9443/ib6/rest"
+  echo
+  echo "  "$(darkBlack "Опциональные параметры:")
+  echo
+  echo "    "$(green "branch") $(lightGray "..................") "Название ветки в Git ("$(green "по умолчанию текущая")")"
+  echo "    "$(green "outputPath") $(lightGray "..............") "Конечный каталог собранных файлов ("$(green "по умолчанию build/outputs")")"
+  echo "    "$(green "update") $(lightGray "..................") "Флаг обязательного обновления исходников ("$(green "git pull")")"
+  echo
+else
+  echo "  "$(darkRed "Для данного скрипта help отсутствует")
+  echo "  "$(darkRed "Для сборок необходимо запускать build/build, см. build/build --help")
+  echo
+fi

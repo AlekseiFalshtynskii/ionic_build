@@ -1,0 +1,28 @@
+<p><strong><span style="color: rgb(255,0,0);">Страница обновляется автоматически, ручная модификация будет удалена!</span> </strong></p>
+{{#stand}}
+<h1><strong>{{name}}</strong></h1>
+<table> 
+  <tbody> 
+  <tr> 
+    <th colspan="1">Режим</th>
+    <th colspan="1">Платформа</th>
+    <th colspan="1">Ревизия</th>
+    <th colspan="1">Дата</th>
+    <th colspan="1">Ссылки</th>
+  </tr>
+  {{#mode}}
+  <tr> 
+    <td colspan="1">{{name}}</td>
+    <td colspan="1">{{platform}}</td>
+    <td colspan="1">{{revision}}</td>
+    <td colspan="1">{{date}}</td>
+    <td colspan="1">
+      {{#urls}}
+      <div><a href="{{url}}">{{url}}</a></div>
+      {{/urls}}
+    </td>
+  </tr>
+  {{/mode}}
+  </tbody>
+</table> 
+{{/stand}}

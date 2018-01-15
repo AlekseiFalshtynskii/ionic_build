@@ -1,0 +1,204 @@
+#!/bin/bash
+. build/common/constants
+
+function handleArgs {
+  key=$1
+  shift
+  all=$*
+
+  while [ "$#" != 0 ]; do
+    case $1 in
+      --branch|--projectName|--projectId|--url|--outputPath|--endFile|--source|--target|`
+      `--version|--version_ios|--version_android|--file|--files|--stand|--stands)
+        if [ $1 == $key ]; then
+          echo $2
+          return 0
+        else
+          shift
+          shift
+        fi
+        ;;
+      --npm_install|--update|--hack|--prod|--release|--market|--publish|--help|ios|android`
+      `|shell|shell_debug|shell_debug_ios|shell_debug_android|shell_release|shell_release_ios|shell_release_android`
+      `|qatar|qatar_debug|qatar_debug_ios|qatar_debug_android|qatar_release|qatar_release_ios|qatar_release_android`
+      `|test01|test01_debug|test01_debug_ios|test01_debug_android|test01_release|test01_release_ios|test01_release_android`
+      `|online|online_debug|online_debug_ios|online_debug_android|online_release|online_release_ios|online_release_android)
+        if [ $1 == $key ]; then
+          echo "true"
+          return 0
+        else
+          shift
+        fi
+        ;;
+      -)
+        break
+        ;;
+      -*)
+        echo "Unknown argument $1"
+        ;;
+    esac
+  done
+
+  # дефолтные значения
+  case $key in
+    --branch)
+      echo `git rev-parse --abbrev-ref HEAD`
+      ;;
+    --outputPath)
+      echo $defaultOutputPath
+      ;;
+    --npm_install|--update|--hack|--prod|--release|--market|--publish|--help)
+      echo "false"
+      ;;
+    ios|android)
+      if [[ "$all" != "ios" ]] && [[ "$all" != "ios "* ]] && [[ "$all" != *" ios" ]] && [[ "$all" != *" ios "* ]]\
+      && [[ "$all" != "android" ]] && [[ "$all" != "android "* ]] && [[ "$all" != *" android" ]] && [[ "$all" != *" android "* ]]; then
+        echo "true"
+      else
+        echo "false"
+      fi
+      ;;
+    shell|qatar|test01|online)
+      if [[ "$all" != "shell"* ]] && [[ "$all" != *" shell" ]] && [[ "$all" != "qatar"* ]] && [[ "$all" != *" qatar" ]]\
+      && [[ "$all" != "test01"* ]] && [[ "$all" != *" test01" ]] && [[ "$all" != "online"* ]] && [[ "$all" != *" online" ]]; then
+        echo "true"
+      else
+        echo "false"
+      fi
+      ;;
+    shell*|qatar*|test01*|online*)
+      echo "false"
+      ;;
+  esac
+}
+
+function getProjectName {
+  stand=$1
+  mode=$2
+  if [[ "$mode" == "debug" ]]; then
+    echo $projectName"-"$1"-d"$versionName
+  else
+    echo $projectName"-"$1$versionName
+  fi
+}
+
+function getProjectId {
+  stand=$1
+  mode=$2
+  if [[ "$mode" == "debug" ]]; then
+    echo $projectId"."$1".old.d"
+  else
+    echo $projectId"."$1".old"
+  fi
+}
+
+function getProjectIdFromFile {
+  file=$1
+  for stand in "${all_stands[@]}"; do
+    if [[ "$file" == *"$stand"* ]]; then
+      break
+    fi
+  done
+  if [[ "$file" == *"-d"$versionName".ipa" ]]; then
+    echo $(getProjectId $stand "debug")
+  else
+    echo $(getProjectId $stand "release")
+  fi
+}
+
+function getServerUrl {
+  url="url_$1"
+  echo ${!url}
+}
+
+function getDropboxUrl {
+  path=$1
+  file=$2
+  link=`build/common/publish/dropbox/dropbox_uploader.sh share $path$file`
+  if [[ $file == *".ipa" ]]; then
+    echo $link | sed -E "s/> Share link: |\?dl=0//g" | sed "s|https://www.dropbox.com/|https://dl.dropboxusercontent.com/|"
+  elif [[ $file == *".plist" ]]; then
+    link=`echo $link | sed -E "s/> Share link: |\?dl=0//g" | sed "s|https://www.dropbox.com/|https://dl.dropboxusercontent.com/|"`
+    echo "itms-services://?action=download-manifest&amp;amp;url="$link
+  else
+    echo $link | sed -E "s/> Share link: |\?dl=0//g"
+  fi
+}
+
+function getDropboxUrls {
+  path=$1
+  files=$2
+  IFS='#' read -ra FILES <<< "$files"
+  for file in "${FILES[@]}"; do
+    links=$links"#"$(getDropboxUrl $path $file)
+  done
+  echo $links | sed 's/#//'
+}
+
+function getFiles {
+  stand=`echo $1 | sed -E 's/_|debug|release|ios|android//g'`
+  debug_ios=$(getProjectName $stand "debug")".ipa"
+  debug_android="android-armv7-debug-"$stand$versionName".apk#android-x86-debug-"$stand$versionName".apk"
+  release_ios=$(getProjectName $stand "release")".ipa"
+  release_android="android-armv7-release-"$stand$versionName".apk#android-x86-release-"$stand$versionName".apk"
+  case $1 in
+    $stand)
+      echo "$debug_ios#$debug_android#$release_ios#$release_android"
+      ;;
+    $stand"_debug")
+      echo "$debug_ios#$debug_android"
+      ;;
+    $stand"_debug_ios")
+      echo "$debug_ios"
+      ;;
+    $stand"_debug_android")
+      echo "$debug_android"
+      ;;
+    $stand"_release")
+      echo "$release_ios#$release_android"
+      ;;
+    $stand"_release_ios")
+      echo "$release_ios"
+      ;;
+    $stand"_release_android")
+      echo "$release_android"
+      ;;
+  esac
+}
+
+function getConfluencePage {
+  branch=$1
+  if [[ $branch == "develop" ]]; then
+    echo "confluence_page_develop"
+  else
+    echo "confluence_page_other"
+  fi
+}
+
+function datetime {
+  echo $(date +%Y-%m-%d_%H.%M)
+}
+
+function green {
+  echo -e "\x1B[1;32m$1\x1B[0m"
+}
+
+function darkGreen {
+  echo -e "\x1B[1;32m$1\x1B[0m"
+}
+
+function darkBlack {
+  echo -e "\x1B[1;30m$1\x1B[0m"
+}
+
+function darkBlue {
+  echo -e "\x1B[1;34m$1\x1B[0m"
+}
+
+function darkRed {
+  echo -e "\x1B[1;31m$1\x1B[0m"
+}
+
+function lightGray {
+  echo -e "\x1B[0;37m$1\x1B[0m"
+}

@@ -1,0 +1,107 @@
+#!/bin/bash
+. build/common/constants
+. build/common/functions
+
+if $(handleArgs --help $*); then
+  build/common/help "build"
+  exit 0
+fi
+
+echo $(green "build/build $*")
+
+rm -rf $(handleArgs --outputPath $*)
+
+update=$(handleArgs --update $*)
+branch=$(handleArgs --branch $*)
+outputPath=$(handleArgs --outputPath $*)
+if $(handleArgs --npm_install $*); then
+  npm_install="--npm_install"
+fi
+if $(handleArgs --hack $*); then
+  hack="--hack"
+fi
+common_params="--branch $branch --outputPath $outputPath $npm_install $hack"
+
+for stand in "${all_stands[@]}"; do
+  if $(handleArgs $stand $*); then
+    if $update; then
+      build/common/build_stand $stand --update $common_params
+      update=false
+    else
+      build/common/build_stand $stand $common_params
+    fi
+    build/common/build_stand $stand --prod --release $common_params
+    stands=$stands"#"$stand"_debug_ios#"$stand"_debug_android#"$stand"_release_ios#"$stand"_release_android"
+    files=$files"#"$(getFiles $stand)
+  else
+    if $(handleArgs $stand"_debug" $*); then
+      if $update; then
+        build/common/build_stand $stand --update $common_params
+        update=false
+      else
+        build/common/build_stand $stand $common_params
+      fi
+      stands=$stands"#"$stand"_debug_ios#"$stand"_debug_android"
+      files=$files"#"$(getFiles $stand"_debug")
+    else
+      if $(handleArgs $stand"_debug_ios" $*); then
+        if $update; then
+          build/common/build_stand $stand ios --update $common_params
+          update=false
+        else
+          build/common/build_stand $stand ios $common_params
+        fi
+        stands=$stands"#"$stand"_debug_ios"
+        files=$files"#"$(getFiles $stand"_debug_ios")
+      fi
+      if $(handleArgs $stand"_debug_android" $*); then
+        if $update; then
+          build/common/build_stand $stand android --update $common_params
+          update=false
+        else
+          build/common/build_stand $stand android $common_params
+        fi
+        stands=$stands"#"$stand"_debug_android"
+        files=$files"#"$(getFiles $stand"_debug_android")
+      fi
+    fi
+    if $(handleArgs $stand"_release" $*); then
+      if $update; then
+        build/common/build_stand $stand --prod --release --update $common_params
+        update=false
+      else
+        build/common/build_stand $stand --prod --release $common_params
+      fi
+      stands=$stands"#"$stand"_release_ios#"$stand"_release_android"
+      files=$files"#"$(getFiles $stand"_release")
+    else
+      if $(handleArgs $stand"_release_ios" $*); then
+        if $update; then
+          build/common/build_stand $stand ios --prod --release --update $common_params
+          update=false
+        else
+          build/common/build_stand $stand ios --prod --release $common_params
+        fi
+        stands=$stands"#"$stand"_release_ios"
+        files=$files"#"$(getFiles $stand"_release_ios")
+      fi
+      if $(handleArgs $stand"_release_android" $*); then
+        if $update; then
+          build/common/build_stand $stand android --prod --release --update $common_params
+          update=false
+        else
+          build/common/build_stand $stand android --prod --release $common_params
+        fi
+        stands=$stands"#"$stand"_release_android"
+        files=$files"#"$(getFiles $stand"_release_android")
+      fi
+    fi
+  fi
+done
+
+files=`echo $files | sed 's/#//'`
+stands=`echo $stands | sed 's/#//'`
+
+if $(handleArgs --publish $*); then
+  build/common/publish/publish $* --stands $stands --files $files
+fi

@@ -1,0 +1,113 @@
+#!/bin/bash
+. build/common/functions
+
+if $(handleArgs --help $*); then
+  build/common/help "build_ios"
+  exit 0
+fi
+
+echo $(green "build/common/ios/build $*")
+
+projectName=$(handleArgs --projectName $*)
+projectId=$(handleArgs --projectId $*)
+outputPath=$(handleArgs --outputPath $*)
+url=$(handleArgs --url $*)
+hack=$(handleArgs --hack $*)
+prod=$(handleArgs --prod $*)
+release=$(handleArgs --release $*)
+market=$(handleArgs --market $*)
+version=$(handleArgs --version $*)
+
+rm -rf platforms/ios
+ionic cordova platform rm ios --no-interactive
+ionic cordova platform add ios --no-interactive --no-resources
+
+ios="ios --no-interactive"
+if $market; then
+  ios="$ios --prod --release"
+else
+  if $prod; then
+    ios="$ios --prod"
+  fi
+  if $release; then
+    ios="$ios --release"
+  fi
+fi
+
+build/common/ios/recreate_user_schemes.rb $projectName
+
+if ! $market; then
+  grepResult=`grep " \/\* $projectName \*\/," platforms/ios/$projectName.xcodeproj/project.pbxproj`
+  target=`echo ${grepResult::28} | sed 's/\s*//g'`
+  sed -i '' "s/LastUpgradeCheck = 510;/LastUpgradeCheck = 510;\\
+          TargetAttributes = {\\
+            $target = {\\
+              DevelopmentTeam = A3WER7623K;\\
+              ProvisioningStyle = Manual;\\
+            };\\
+          };/" platforms/ios/$projectName.xcodeproj/project.pbxproj
+fi
+
+if $hack; then
+  ip=$(sed 's|https://||g;s|/.*||g' <<< $url)
+
+  echo "
+@implementation NSURLRequest(DataController)
++ (BOOL)allowsAnyHTTPSCertificateForHost:(NSString *)host
+{
+     if ([host hasSuffix:@\"$ip\"])
+     {
+         return YES;
+     }
+     else
+     {
+         return NO;
+     }
+}
+@end
+" >> platforms/ios/$projectName/Classes/AppDelegate.m
+fi
+
+node --max-old-space-size=4096 /usr/local/bin/ionic cordova build $ios
+
+if $market; then
+  xcodebuild archive `
+    ` -project "platforms/ios/$projectName.xcodeproj"`
+    ` -scheme "$projectName"`
+    ` -archivePath "$outputPath$projectName.xcarchive"`
+    ` -destination "generic/platform=iOS"`
+    ` -target="$projectName"`
+    ` -allowProvisioningUpdates`
+    ` ENABLE_BITCODE=NO`
+    ` PRODUCT_BUNDLE_IDENTIFIER="$projectId"`
+    ` PRODUCT_NAME="$projectName"`
+    ` DEVELOPMENT_TEAM="9L7LEIDOC"`
+    ` CODE_SIGN_IDENTITY="iPhone Developer"`
+    ` IPHONEOS_DEPLOYMENT_TARGET="9.0"
+else
+  xcodebuild archive `
+    ` -project "platforms/ios/$projectName.xcodeproj"`
+    ` -scheme "$projectName"`
+    ` -archivePath "platforms/ios/$projectName.xcarchive"`
+    ` -destination "generic/platform=iOS"`
+    ` -target="$projectName"`
+    ` ENABLE_BITCODE=NO`
+    ` PRODUCT_BUNDLE_IDENTIFIER="$projectId"`
+    ` PRODUCT_NAME="$projectName"`
+    ` DEVELOPMENT_TEAM="A3WER7623K"`
+    ` CODE_SIGN_IDENTITY="iPhone Distribution"`
+    ` PROVISIONING_PROFILE="2984f863-2a48-448a-a18c-15aa3938f06f"`
+    ` IPHONEOS_DEPLOYMENT_TARGET="9.0"
+
+  sed -i '' 's|<key>projectId</key>|<key>'$projectId'</key>|' "build/"$exportOptions
+
+  xcodebuild -exportArchive`
+    ` -archivePath "platforms/ios/$projectName.xcarchive"`
+    ` -exportOptionsPlist "build/"$exportOptions`
+    ` -exportPath $outputPath
+
+  cd build
+  git -c core.quotepath=false rm --cached -f -- $exportOptions
+  git -c core.quotepath=false checkout HEAD -- $exportOptions
+  cd ../
+fi

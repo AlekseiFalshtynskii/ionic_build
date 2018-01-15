@@ -1,0 +1,34 @@
+#!/bin/bash
+. build/common/functions
+
+if $(handleArgs --help $*); then
+  build/common/help "build_all_after"
+  exit 0
+fi
+
+echo $(green "build/common/publish/publish $*")
+
+branch=$(handleArgs --branch $*)
+outputPath=$(handleArgs --outputPath $*)
+stands=$(handleArgs --stands $*)
+files=$(handleArgs --files $*)
+
+IFS='#' read -ra FILES <<< "$files"
+for file in "${FILES[@]}"; do
+  if [ ! -f $outputPath$file ]; then
+    files_not_found=$files_not_found"#"$file
+  fi
+done
+
+if [ ! "$files_not_found" ]; then
+  build/common/publish/archive/archive --source $outputPath --target $archivePath"_"$branch --files $files
+  build/common/publish/dropbox/dropbox_upload --source $outputPath --target $dropboxPath"/"$branch"/" --files $files
+  files=`echo $files | sed "s/ipa/plist/g"`
+  dropboxUrls=$(getDropboxUrls $dropboxPath"/"$branch"/" $files)
+  python build/common/publish/save_builds/save_builds_json.py $branch $stands $dropboxUrls
+  confluence_page=$(getConfluencePage $branch)
+  python build/common/publish/confluence/update_confluence_page.py ${!confluence_page} $branch
+  python build/common/publish/email/send_email_ok.py ${!confluence_page} $branch
+else
+  python build/common/publish/email/send_email_error.py $files_not_found
+fi

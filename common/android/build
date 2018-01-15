@@ -1,0 +1,49 @@
+#!/bin/bash
+. build/common/functions
+
+if $(handleArgs --help $*); then
+  build/common/help "build_android"
+  exit 0
+fi
+
+echo $(green "build/common/android/build $*")
+
+outputPath=$(handleArgs --outputPath $*)
+endFile=$(handleArgs --endFile $*)
+prod=$(handleArgs --prod $*)
+release=$(handleArgs --release $*)
+market=$(handleArgs --market $*)
+
+rm -rf platforms/android
+ionic cordova platform rm android --no-interactive
+ionic cordova platform add android --no-resources --no-interactive
+
+android="android --no-interactive"
+if $market; then
+  android="$android --prod --release"
+else
+  if $prod; then
+    android="$android --prod"
+  fi
+  if $release; then
+    android="$android --release -- -- --keystore=build/common/android/mbul.keystore --storePassword=111 --alias=mbul --password=111"
+  elif [ $endFile == "qatar" ]; then
+    sed -i '' "s/return !this.isBrowser();/return false;/" swagger/typescript-angular2/api.mustache
+  fi
+fi
+
+node --max-old-space-size=4096 /usr/local/bin/ionic cordova build $android
+
+mkdir -p $outputPath
+for f in platforms/android/build/outputs/apk/*.apk
+do
+  if [ "$endFile" ]; then
+    fileName="$outputPath$(basename ${f%.apk})-$endFile$versionName.apk"
+  else
+    fileName="$outputPath$(basename ${f%.apk})$versionName.apk"
+  fi
+  cp -v $f $fileName
+done
+
+git -c core.quotepath=false rm --cached -f -- swagger/typescript-angular2/api.mustache
+git -c core.quotepath=false checkout HEAD -- swagger/typescript-angular2/api.mustache

@@ -1,0 +1,41 @@
+#!/bin/bash
+. build/common/constants
+. build/common/functions
+
+if $(handleArgs --help $*); then
+  build/common/help "build_market"
+  exit 0
+fi
+
+echo $(green "build/build_market $*")
+
+build_ios=$(handleArgs ios $*)
+build_android=$(handleArgs android $*)
+branch=$(handleArgs --branch $*)
+outputPath=$(handleArgs --outputPath $*)
+update=$(handleArgs --update $*)
+
+ios="    ios     --branch $branch --projectName $projectName_market --projectId $projectId_market_ios     --outputPath $outputPath --url $url_market --version $version_market_ios     --market"
+android="android --branch $branch --projectName $projectName_market --projectId $projectId_market_android --outputPath $outputPath --url $url_market --version $version_market_android --market"
+
+if $update; then
+  ios="$ios --update"
+fi
+if ! $build_ios && $update; then
+  android="$android --update"
+fi
+
+after="--outputPath $outputPath"
+
+if $build_ios; then
+  build/common/build_prepare $ios
+  after="$after ios --version_ios $version_market_ios"
+fi
+if $build_android; then
+  build/common/build_prepare $android
+  after="$after android --version_android $version_market_android"
+fi
+
+if $(handleArgs --publish $*); then
+  build/common/publish/publish_market $after
+fi

@@ -1,0 +1,15 @@
+#!/bin/bash
+. build/common/functions
+
+source=$(handleArgs --source $*)
+target=$(handleArgs --target $*)
+files=$(handleArgs --files $*)
+
+IFS='#' read -ra FILES <<< "$files"
+for file in "${FILES[@]}"; do
+  build/common/publish/dropbox/dropbox_uploader.sh upload $source$file $target
+
+  if [[ $file == *".ipa" ]]; then
+    build/common/publish/dropbox/dropbox_upload_plist --target $target --file $file
+  fi
+done
